@@ -4,7 +4,14 @@ import sublime_plugin
 import os
 from subprocess import Popen, PIPE
 
-class PmccabeCommand(sublime_plugin.WindowCommand):
+class ProcessListener(object):
+    def on_data(self, proc, data):
+        pass
+
+    def on_finished(self, proc):
+        pass
+
+class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
     def _get_pmccabe_executable(self):
         s = sublime.load_settings("pmccabe.sublime-settings")
         pmccabe_executable = s.get("pmccabe_executable", "/usr/bin/pmccabe")

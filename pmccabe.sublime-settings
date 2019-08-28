@@ -1,4 +1,5 @@
 {
     // location to find the 'pmccabe' executable
+    // Default location is /usr/bin/pmccabe
     "pmccabe_executable": "/usr/local/bin/pmccabe"
 }
