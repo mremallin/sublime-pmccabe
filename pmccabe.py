@@ -9,6 +9,7 @@ import time
 import codecs
 import signal
 import collections
+import functools
 from subprocess import Popen, PIPE
 
 class ProcessListener(object):
@@ -34,37 +35,25 @@ class AsyncProcess(object):
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
         if sys.platform == "win32":
-            # Use shell=True on Windows, so shell_cmd is passed through with the correct escaping
+            preexec_fn = None
+        else:
+            preexec_fn = os.setsid
+
+        if sys.platform == "win32":
             self.proc = subprocess.Popen(
-                shell_cmd,
+                [executable, "-v", file_path],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 stdin=subprocess.PIPE,
                 startupinfo=startupinfo,
-                env=proc_env,
-                shell=True)
-        elif sys.platform == "darwin":
-            # Use a login shell on OSX, otherwise the users expected env vars won't be setup
-            self.proc = subprocess.Popen(
-                ["/usr/bin/env", "bash", "-l", "-c", executable, "-v", file_path],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                stdin=subprocess.PIPE,
-                startupinfo=startupinfo,
-                env=proc_env,
-                preexec_fn=preexec_fn,
                 shell=False)
-        elif sys.platform == "linux":
-            # Explicitly use /bin/bash on Linux, to keep Linux and OSX as
-            # similar as possible. A login shell is explicitly not used for
-            # linux, as it's not required
+        elif sys.platform == "darwin" or sys.platform == "linux":
             self.proc = subprocess.Popen(
-                ["/usr/bin/env", "bash", "-c", shell_cmd, executable, "-v", file_path],
+                [executable, "-v", file_path],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 stdin=subprocess.PIPE,
                 startupinfo=startupinfo,
-                env=proc_env,
                 preexec_fn=preexec_fn,
                 shell=False)
 
@@ -121,6 +110,7 @@ class AsyncProcess(object):
                 break
 
 class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
+    BLOCK_SIZE = 2**14
     text_queue = collections.deque()
     text_queue_proc = None
     text_queue_lock = threading.Lock()
@@ -130,7 +120,7 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
         pmccabe_executable = s.get("pmccabe_executable", "/usr/bin/pmccabe")
         return pmccabe_executable
 
-    def run(self, kill=False, **kwargs):
+    def run(self, kill=False, encoding="utf-8", quiet=False, **kwargs):
         # clear the text_queue
         with self.text_queue_lock:
             self.text_queue.clear()
@@ -146,6 +136,9 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
         view = self.window.active_view()
         self.output_panel = self.window.create_output_panel("pmccabe")
         self.window.run_command("show_panel", {"panel": "output.pmccabe"})
+
+        self.encoding = encoding
+        self.quiet = quiet
 
         try:
             # Forward kwargs to AsyncProcess
