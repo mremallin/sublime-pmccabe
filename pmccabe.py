@@ -147,11 +147,18 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
         self.output_panel = self.window.create_output_panel("pmccabe")
         self.window.run_command("show_panel", {"panel": "output.pmccabe"})
 
-        p = Popen([self._get_pmccabe_executable(), "-v", view.file_name()], stdout=PIPE, stdin=PIPE, stderr=PIPE,
-                  universal_newlines=True)
-        pmccabe_stdout = p.communicate()[0]
-        self.output_panel.run_command('append', 
-            {'characters': pmccabe_stdout, 'force': True, 'scroll_to_end': True})
+        try:
+            # Forward kwargs to AsyncProcess
+            self.proc = AsyncProcess(self._get_pmccabe_executable(), view.file_name(), self, **kwargs)
+
+            with self.text_queue_lock:
+                self.text_queue_proc = self.proc
+
+        except Exception as e:
+            self.append_string(None, str(e) + "\n")
+            self.append_string(None, self.debug_text + "\n")
+            if not self.quiet:
+                self.append_string(None, "[Finished]")
 
     def is_enabled(self, kill=False, **kwargs):
         if kill:
@@ -188,3 +195,42 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
         if was_empty:
             sublime.set_timeout(self.service_text_queue, 0)
 
+    def service_text_queue(self):
+        is_empty = False
+        with self.text_queue_lock:
+            if len(self.text_queue) == 0:
+                # this can happen if a new build was started, which will clear
+                # the text_queue
+                return
+
+            characters = self.text_queue.popleft()
+            is_empty = (len(self.text_queue) == 0)
+
+        self.output_panel.run_command(
+            'append',
+            {'characters': characters, 'force': True, 'scroll_to_end': True})
+
+    def finish(self, proc):
+        if not self.quiet:
+            elapsed = time.time() - proc.start_time
+            exit_code = proc.exit_code()
+            if exit_code == 0 or exit_code is None:
+                self.append_string(proc, "[Finished in %.1fs]" % elapsed)
+            else:
+                self.append_string(proc, "[Finished in %.1fs with exit code %d]\n" % (elapsed, exit_code))
+                self.append_string(proc, self.debug_text)
+
+        if proc != self.proc:
+            return
+
+        sublime.status_message("Analysis finished")
+
+    def on_data(self, proc, data):
+        # Normalize newlines, Sublime Text always uses a single \n separator
+        # in memory.
+        data = data.replace('\r\n', '\n').replace('\r', '\n')
+
+        self.append_string(proc, data)
+
+    def on_finished(self, proc):
+        sublime.set_timeout(functools.partial(self.finish, proc), 0)
