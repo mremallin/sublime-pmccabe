@@ -6,7 +6,7 @@ from subprocess import Popen, PIPE
 
 class PmccabeCommand(sublime_plugin.WindowCommand):
     def _get_pmccabe_executable(self):
-        s = sublime.load_settings("Preferences.sublime-settings")
+        s = sublime.load_settings("pmccabe.sublime-settings")
         pmccabe_executable = s.get("pmccabe_executable", "/usr/bin/pmccabe")
         return pmccabe_executable
 
