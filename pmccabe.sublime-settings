@@ -1,4 +1,4 @@
 {
-	// location to find the 'pmccabe' executable
+    // location to find the 'pmccabe' executable
     "pmccabe_executable": "/usr/local/bin/pmccabe"
 }
