@@ -12,17 +12,15 @@ class PmccabeCommand(sublime_plugin.WindowCommand):
 
     def run(self):
         view = self.window.active_view()
-        code_text = view.substr(sublime.Region(0, view.size()))
 
         self.output_panel = self.window.create_output_panel("pmccabe")
         self.window.run_command("show_panel", {"panel": "output.pmccabe"})
 
-        p = Popen([self._get_pmccabe_executable()], stdout=PIPE, stdin=PIPE, stderr=PIPE,
+        p = Popen([self._get_pmccabe_executable(), view.file_name()], stdout=PIPE, stdin=PIPE, stderr=PIPE,
                   universal_newlines=True)
-        pmccabe_stdout = p.communicate(input=code_text)[0]
+        pmccabe_stdout = p.communicate()[0]
         self.output_panel.run_command('append', 
             {'characters': pmccabe_stdout, 'force': True, 'scroll_to_end': True})
-        sublime.log(pmccabe_stdout)
 
     def is_enabled(self):
         pmccabe_executable = self._get_pmccabe_executable()
