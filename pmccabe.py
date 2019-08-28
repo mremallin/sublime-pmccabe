@@ -16,7 +16,7 @@ class PmccabeCommand(sublime_plugin.WindowCommand):
         self.output_panel = self.window.create_output_panel("pmccabe")
         self.window.run_command("show_panel", {"panel": "output.pmccabe"})
 
-        p = Popen([self._get_pmccabe_executable(), view.file_name()], stdout=PIPE, stdin=PIPE, stderr=PIPE,
+        p = Popen([self._get_pmccabe_executable(), "-v", view.file_name()], stdout=PIPE, stdin=PIPE, stderr=PIPE,
                   universal_newlines=True)
         pmccabe_stdout = p.communicate()[0]
         self.output_panel.run_command('append', 

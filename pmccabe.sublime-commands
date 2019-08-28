@@ -1,6 +1,6 @@
 [
 	{
-		"caption": "pmccabe: run display.c",
+		"caption": "pmccabe: Run Complexity Analysis on this File",
 		"command": "pmccabe"
 	}
 ]
