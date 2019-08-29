@@ -10,7 +10,7 @@ import codecs
 import signal
 import collections
 import functools
-from subprocess import Popen, PIPE
+
 
 class ProcessListener(object):
     def on_data(self, proc, data):
@@ -18,6 +18,7 @@ class ProcessListener(object):
 
     def on_finished(self, proc):
         pass
+
 
 class AsyncProcess(object):
     def __init__(self, executable, file_path, listener):
@@ -109,6 +110,7 @@ class AsyncProcess(object):
                     self.listener.on_finished(self)
                 break
 
+
 class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
     BLOCK_SIZE = 2**14
     text_queue = collections.deque()
@@ -142,7 +144,8 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
 
         try:
             # Forward kwargs to AsyncProcess
-            self.proc = AsyncProcess(self._get_pmccabe_executable(), view.file_name(), self, **kwargs)
+            self.proc = AsyncProcess(self._get_pmccabe_executable(),
+                                     view.file_name(), self, **kwargs)
 
             with self.text_queue_lock:
                 self.text_queue_proc = self.proc
@@ -159,7 +162,8 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
 
         pmccabe_executable = self._get_pmccabe_executable()
         if not os.path.exists(pmccabe_executable):
-            sublime.error_message("The pmccabe executable provided at '{}' does not exist".format(pmccabe_executable))
+            sublime.error_message("The pmccabe executable provided at '{}' "
+                                  "does not exist".format(pmccabe_executable))
             return False
 
         return True
