@@ -9,8 +9,10 @@ Requirements
 
 - pmccabe_ installed and working
 
+.. _pmccabe: https://people.debian.org/~bame/pmccabe/download.html
+
 Screenshots
 -----------
 
-.. editor_screenshot:: https://github.com/mremallin/sublime-pmccabe/images/pmccabe_output.png
-.. _pmccabe: https://people.debian.org/~bame/pmccabe/download.html
+
+.. _image:: https://github.com/mremallin/sublime-pmccabe/images/pmccabe_output.png
