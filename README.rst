@@ -14,5 +14,4 @@ Requirements
 Screenshots
 -----------
 
-
-.. _image:: https://github.com/mremallin/sublime-pmccabe/images/pmccabe_output.png
+.. image:: https://github.com/mremallin/sublime-pmccabe/raw/master/images/pmccabe_output.png
