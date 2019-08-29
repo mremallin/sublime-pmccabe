@@ -207,6 +207,9 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
             'append',
             {'characters': characters, 'force': True, 'scroll_to_end': True})
 
+        if not is_empty:
+            sublime.set_timeout(self.service_text_queue, 1)
+
     def finish(self, proc):
         if not self.quiet:
             elapsed = time.time() - proc.start_time
@@ -214,7 +217,10 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
             if exit_code == 0 or exit_code is None:
                 self.append_string(proc, "[Finished in %.1fs]" % elapsed)
             else:
-                self.append_string(proc, "[Finished in %.1fs with exit code %d]\n" % (elapsed, exit_code))
+                self.append_string(
+                    proc,
+                    "[Finished in %.1fs with exit code %d]\n" %
+                    (elapsed, exit_code))
                 self.append_string(proc, self.debug_text)
 
         if proc != self.proc:
