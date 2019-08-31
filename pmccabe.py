@@ -10,6 +10,32 @@ import codecs
 import signal
 import collections
 import functools
+import re
+
+ComplexityResult = collections.namedtuple("ComplexityResult",
+                                          ["modified_complexity",
+                                           "traditional_complexity",
+                                           "num_statements",
+                                           "first_line",
+                                           "lines_in_function",
+                                           "filename",
+                                           "function"])
+ComplexityLineRE = re.compile(
+    r"^(?P<modified_complexity>\d+)\s+"
+    "(?P<traditional_complexity>\d+)\s+(?P<num_statements>\d+)\s+"
+    "(?P<first_line>\d+)\s+(?P<num_lines>\d+)\s+(?P<filename>.*):\s+"
+    "(?P<function_name>.*)")
+
+
+def parse_complexity_results(view, lines_to_parse):
+    complexity_results = []
+    for line in lines_to_parse:
+        match = ComplexityLineRE.match(view.substr(line))
+        if match:
+            complexity_results.append((
+                ComplexityResult(*match.groups()), line))
+
+    return complexity_results
 
 
 class ProcessListener(object):
@@ -141,6 +167,7 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
 
         self.encoding = encoding
         self.quiet = quiet
+        self.debug_text = ""
 
         try:
             # Forward kwargs to AsyncProcess
@@ -155,6 +182,30 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
             self.append_string(None, self.debug_text + "\n")
             if not self.quiet:
                 self.append_string(None, "[Finished]")
+
+    def highlight_results(self):
+        output_lines = self.output_panel.lines(
+            sublime.Region(0, self.output_panel.size()))
+        results = parse_complexity_results(self.output_panel, output_lines)
+
+        output_regions = {
+            "low_complexity": [],
+            "medium_complexity": [],
+            "high_complexity": []
+        }
+        for result, line_region in results:
+            if int(result.modified_complexity) > 15:
+                output_regions["high_complexity"].append(line_region)
+            elif int(result.modified_complexity) > 4:
+                output_regions["medium_complexity"].append(line_region)
+            else:
+                output_regions["low_complexity"].append(line_region)
+
+        self.output_panel.add_regions(
+            "Pmccabe_low_complexity",
+            output_regions["medium_complexity"],
+            "storage.type",
+            flags=sublime.DRAW_SOLID_UNDERLINE)
 
     def is_enabled(self, kill=False, **kwargs):
         if kill:
@@ -225,6 +276,8 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
 
         if proc != self.proc:
             return
+
+        self.highlight_results()
 
         sublime.status_message("Analysis finished")
 
