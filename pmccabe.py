@@ -216,18 +216,18 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
         output_lines = self.output_panel.lines(
             sublime.Region(0, self.output_panel.size()))
         results = parse_complexity_results(self.output_panel, output_lines)
-        output_regions = self.sort_results_into_buckets(results)
+        complexity_buckets = self.sort_results_into_buckets(results)
 
         self.output_panel.add_regions(
             "Pmccabe_high_complexity",
-            output_regions["high_complexity"],
+            complexity_buckets["high_complexity"],
             "invalid.illegal")
         self.output_panel.add_regions(
             "Pmccabe_medium_complexity",
-            output_regions["medium_complexity"])
+            complexity_buckets["medium_complexity"])
         self.output_panel.add_regions(
             "Pmccabe_low_complexity",
-            output_regions["low_complexity"],
+            complexity_buckets["low_complexity"],
             "comment")
 
     def is_enabled(self, kill=False, **kwargs):
