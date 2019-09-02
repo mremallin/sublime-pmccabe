@@ -2,10 +2,13 @@
     // location to find the 'pmccabe' executable
     "pmccabe_executable": "/usr/bin/pmccabe",
     // Threshold for 'high complexity' functions. A complexity greater than
-    // this value will be marked as 'high complexity'
+    // this value will be marked as 'high complexity'. Set to 15 if not set.
     "high_complexity_threshold": 15,
     // Threshold for 'medium complexity' functions. A complexity greater than
     // this value will be marked as 'medium complexity'. Anything below this
-    // will be marked as 'low complexity'.
-    "medium_complexity_threshold": 7
+    // will be marked as 'low complexity'. Set to 7 if not set.
+    "medium_complexity_threshold": 7,
+    // Will cause the output pane to be highlighted based on low, medium,
+    // high complexity metrics when set to true. Disabled if not set.
+    "output_highlighting": true
 }

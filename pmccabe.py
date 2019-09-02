@@ -156,6 +156,10 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
         s = sublime.load_settings("pmccabe.sublime-settings")
         return s.get("medium_complexity_threshold", 7)
 
+    def _get_output_highlighting_enabled(self):
+        s = sublime.load_settings("pmccabe.sublime-settings")
+        return s.get("output_highlighting", False)
+
     def run(self, kill=False, encoding="utf-8", quiet=False, **kwargs):
         # clear the text_queue
         with self.text_queue_lock:
@@ -291,7 +295,8 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
         if proc != self.proc:
             return
 
-        self.highlight_results()
+        if self._get_output_highlighting_enabled():
+            self.highlight_results()
 
         sublime.status_message("Analysis finished")
 
