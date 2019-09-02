@@ -212,23 +212,26 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
 
         return output_regions
 
+    def get_scope_for_bucket(self, result_bucket):
+        if result_bucket == "high_complexity":
+            return "invalid.illegal"
+        elif result_bucket == "medium_complexity":
+            return ""
+        else:
+            return "comment"
+
     def highlight_results(self):
         output_lines = self.output_panel.lines(
             sublime.Region(0, self.output_panel.size()))
         results = parse_complexity_results(self.output_panel, output_lines)
         complexity_buckets = self.sort_results_into_buckets(results)
 
-        self.output_panel.add_regions(
-            "Pmccabe_high_complexity",
-            complexity_buckets["high_complexity"],
-            "invalid.illegal")
-        self.output_panel.add_regions(
-            "Pmccabe_medium_complexity",
-            complexity_buckets["medium_complexity"])
-        self.output_panel.add_regions(
-            "Pmccabe_low_complexity",
-            complexity_buckets["low_complexity"],
-            "comment")
+        for bucket, regions in complexity_buckets.items():
+            self.output_panel.add_regions(
+                "Pmccabe_" + bucket,
+                regions,
+                self.get_scope_for_bucket(bucket)
+            )
 
     def is_enabled(self, kill=False, **kwargs):
         if kill:
