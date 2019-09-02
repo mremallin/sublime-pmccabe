@@ -19,7 +19,7 @@ ComplexityResult = collections.namedtuple("ComplexityResult",
                                            "first_line",
                                            "lines_in_function",
                                            "filename",
-                                           "function"])
+                                           "function_name"])
 ComplexityLineRE = re.compile(
     r"^(?P<modified_complexity>\d+)\s+"
     "(?P<traditional_complexity>\d+)\s+(?P<num_statements>\d+)\s+"
@@ -196,16 +196,22 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
         for result, line_region in results:
             if int(result.modified_complexity) > 15:
                 output_regions["high_complexity"].append(line_region)
-            elif int(result.modified_complexity) > 4:
+            elif int(result.modified_complexity) > 7:
                 output_regions["medium_complexity"].append(line_region)
             else:
                 output_regions["low_complexity"].append(line_region)
 
         self.output_panel.add_regions(
+            "Pmccabe_high_complexity",
+            output_regions["high_complexity"],
+            "invalid.illegal", "")
+        self.output_panel.add_regions(
+            "Pmccabe_medium_complexity",
+            output_regions["medium_complexity"])
+        self.output_panel.add_regions(
             "Pmccabe_low_complexity",
-            output_regions["medium_complexity"],
-            "storage.type",
-            flags=sublime.DRAW_SOLID_UNDERLINE)
+            output_regions["low_complexity"],
+            "comment")
 
     def is_enabled(self, kill=False, **kwargs):
         if kill:
