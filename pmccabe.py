@@ -195,16 +195,13 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
             if not self.quiet:
                 self.append_string(None, "[Finished]")
 
-    def highlight_results(self):
-        output_lines = self.output_panel.lines(
-            sublime.Region(0, self.output_panel.size()))
-        results = parse_complexity_results(self.output_panel, output_lines)
-
+    def sort_results_into_buckets(self, results):
         output_regions = {
             "low_complexity": [],
             "medium_complexity": [],
             "high_complexity": []
         }
+
         for result, line_region in results:
             if int(result.modified_complexity) > self._get_high_complexity_threshold():
                 output_regions["high_complexity"].append(line_region)
@@ -212,6 +209,14 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
                 output_regions["medium_complexity"].append(line_region)
             else:
                 output_regions["low_complexity"].append(line_region)
+
+        return output_regions
+
+    def highlight_results(self):
+        output_lines = self.output_panel.lines(
+            sublime.Region(0, self.output_panel.size()))
+        results = parse_complexity_results(self.output_panel, output_lines)
+        output_regions = self.sort_results_into_buckets(results)
 
         self.output_panel.add_regions(
             "Pmccabe_high_complexity",
