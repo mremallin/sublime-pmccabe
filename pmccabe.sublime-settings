@@ -3,5 +3,9 @@
     "pmccabe_executable": "/usr/bin/pmccabe",
     // Threshold for 'high complexity' functions. A complexity greater than
     // this value will be marked as 'high complexity'
-    "high_complexity_threshold": 15
+    "high_complexity_threshold": 15,
+    // Threshold for 'medium complexity' functions. A complexity greater than
+    // this value will be marked as 'medium complexity'. Anything below this
+    // will be marked as 'low complexity'.
+    "medium_complexity_threshold": 7
 }

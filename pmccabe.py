@@ -152,6 +152,10 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
         s = sublime.load_settings("pmccabe.sublime-settings")
         return s.get("high_complexity_threshold", 15)
 
+    def _get_medium_complexity_threshold(self):
+        s = sublime.load_settings("pmccabe.sublime-settings")
+        return s.get("medium_complexity_threshold", 7)
+
     def run(self, kill=False, encoding="utf-8", quiet=False, **kwargs):
         # clear the text_queue
         with self.text_queue_lock:
@@ -200,7 +204,7 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
         for result, line_region in results:
             if int(result.modified_complexity) > self._get_high_complexity_threshold():
                 output_regions["high_complexity"].append(line_region)
-            elif int(result.modified_complexity) > 7:
+            elif int(result.modified_complexity) > self._get_medium_complexity_threshold():
                 output_regions["medium_complexity"].append(line_region)
             else:
                 output_regions["low_complexity"].append(line_region)
@@ -208,7 +212,7 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
         self.output_panel.add_regions(
             "Pmccabe_high_complexity",
             output_regions["high_complexity"],
-            "invalid.illegal", "")
+            "invalid.illegal")
         self.output_panel.add_regions(
             "Pmccabe_medium_complexity",
             output_regions["medium_complexity"])
