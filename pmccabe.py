@@ -144,7 +144,12 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
     text_queue_lock = threading.Lock()
     _phantom_content = """
     <body id="pmccabe-phantom">
-        Test
+        <style>
+            div.low_complexity {{{css_text_color}}}
+        </style>
+        <div class="low_complexity">
+            (Modified: {modified}, Traditional: {traditional})
+        </div>
     </body>
     """
 
@@ -242,7 +247,10 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
             for region in regions:
                 phantoms.append(sublime.Phantom(
                     region,
-                    PmccabeCommand._phantom_content,
+                    PmccabeCommand._phantom_content.format(
+                        css_text_color="color: var(--bluish);",
+                        modified=0, traditional=0
+                    ),
                     sublime.LAYOUT_BELOW
                 ))
 
