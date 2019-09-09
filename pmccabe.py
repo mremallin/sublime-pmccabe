@@ -142,6 +142,11 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
     text_queue = collections.deque()
     text_queue_proc = None
     text_queue_lock = threading.Lock()
+    _phantom_content = """
+    <body id="pmccabe-phantom">
+        Test
+    </body>
+    """
 
     def _get_pmccabe_executable(self):
         s = sublime.load_settings("pmccabe.sublime-settings")
@@ -176,13 +181,14 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
         view = self.window.active_view()
         self.output_panel = self.window.create_output_panel("pmccabe")
         self.window.run_command("show_panel", {"panel": "output.pmccabe"})
+        self.phantoms = sublime.PhantomSet(self.output_panel,
+                                           "pmccabe_output_phantoms")
 
         self.encoding = encoding
         self.quiet = quiet
         self.debug_text = ""
 
         try:
-            # Forward kwargs to AsyncProcess
             self.proc = AsyncProcess(self._get_pmccabe_executable(),
                                      view.file_name(), self, **kwargs)
 
@@ -225,6 +231,7 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
             sublime.Region(0, self.output_panel.size()))
         results = parse_complexity_results(self.output_panel, output_lines)
         complexity_buckets = self.sort_results_into_buckets(results)
+        phantoms = []
 
         for bucket, regions in complexity_buckets.items():
             self.output_panel.add_regions(
@@ -232,6 +239,14 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
                 regions,
                 self.get_scope_for_bucket(bucket)
             )
+            for region in regions:
+                phantoms.append(sublime.Phantom(
+                    region,
+                    PmccabeCommand._phantom_content,
+                    sublime.LAYOUT_BELOW
+                ))
+
+        self.phantoms.update(phantoms)
 
     def is_enabled(self, kill=False, **kwargs):
         if kill:
