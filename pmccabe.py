@@ -87,13 +87,15 @@ class AsyncProcess(object):
         if self.proc.stdout:
             threading.Thread(
                 target=self.read_fileno,
-                args=(self.proc.stdout.fileno(), True)
+                args=(self.proc.stdout.fileno(), True),
+                name="pmccabe-stdout"
             ).start()
 
         if self.proc.stderr:
             threading.Thread(
                 target=self.read_fileno,
-                args=(self.proc.stderr.fileno(), False)
+                args=(self.proc.stderr.fileno(), False),
+                name="pmccabe-stderr"
             ).start()
 
     def kill(self):
@@ -145,9 +147,9 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
     _phantom_content = """
     <body id="pmccabe-phantom">
         <style>
-            div.low_complexity {{{css_text_color}}}
+            div.{bucket} {{{css_text_color}}}
         </style>
-        <div class="low_complexity">
+        <div class="{bucket}">
             (Modified: {modified}, Traditional: {traditional})
         </div>
     </body>
@@ -231,6 +233,14 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
         else:
             return "comment"
 
+    def get_css_for_bucket(self, result_bucket):
+        if result_bucket == "high_complexity":
+            return "color: var(--redish);"
+        elif result_bucket == "medium_complexity":
+            return ""
+        else:
+            return "color: var(--bluish);"
+
     def highlight_results(self):
         output_lines = self.output_panel.lines(
             sublime.Region(0, self.output_panel.size()))
@@ -249,7 +259,8 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
                 phantoms.append(sublime.Phantom(
                     region,
                     PmccabeCommand._phantom_content.format(
-                        css_text_color="color: var(--bluish);",
+                        bucket=bucket,
+                        css_text_color=self.get_css_for_bucket(bucket),
                         modified=result.modified_complexity,
                         traditional=result.traditional_complexity
                     ),
