@@ -215,11 +215,11 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
 
         for result, line_region in results:
             if int(result.modified_complexity) > self._get_high_complexity_threshold():
-                output_regions["high_complexity"].append(line_region)
+                output_regions["high_complexity"].append((result, line_region))
             elif int(result.modified_complexity) > self._get_medium_complexity_threshold():
-                output_regions["medium_complexity"].append(line_region)
+                output_regions["medium_complexity"].append((result, line_region))
             else:
-                output_regions["low_complexity"].append(line_region)
+                output_regions["low_complexity"].append((result, line_region))
 
         return output_regions
 
@@ -239,17 +239,19 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
         phantoms = []
 
         for bucket, regions in complexity_buckets.items():
+            output_regions = [region[1] for region in regions]
             self.output_panel.add_regions(
                 "Pmccabe_" + bucket,
-                regions,
+                output_regions,
                 self.get_scope_for_bucket(bucket)
             )
-            for region in regions:
+            for result, region in regions:
                 phantoms.append(sublime.Phantom(
                     region,
                     PmccabeCommand._phantom_content.format(
                         css_text_color="color: var(--bluish);",
-                        modified=0, traditional=0
+                        modified=result.modified_complexity,
+                        traditional=result.traditional_complexity
                     ),
                     sublime.LAYOUT_BELOW
                 ))
