@@ -19,11 +19,13 @@ ComplexityResult = collections.namedtuple("ComplexityResult",
                                            "first_line",
                                            "lines_in_function",
                                            "filename",
+                                           "definition_line",
                                            "function_name"])
 ComplexityLineRE = re.compile(
     r"^(?P<modified_complexity>\d+)\s+"
     "(?P<traditional_complexity>\d+)\s+(?P<num_statements>\d+)\s+"
-    "(?P<first_line>\d+)\s+(?P<num_lines>\d+)\s+(?P<filename>.*):\s+"
+    "(?P<first_line>\d+)\s+(?P<num_lines>\d+)\s+(?P<filename>.*)"
+    "\((?P<definition_line>\d+)\):\s+"
     "(?P<function_name>.*)")
 
 
@@ -262,17 +264,19 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
 
     def change_regions_from_output_to_active(self, complexity_buckets):
         new_buckets = {}
-        possible_function_definitions = \
-            self.target_view.find_by_selector("entity.name.function.c")
         for bucket, results in complexity_buckets.items():
             new_buckets[bucket] = []
-            for function_region in possible_function_definitions:
-                line = self.target_view.substr(function_region)
-                for result, region in results:
-                    if result.function_name in line:
-                        new_buckets[bucket].append((
-                            result, function_region
-                        ))
+            for result, _ in results:
+                region_start = self.target_view.text_point(
+                    # text_point uses 0-offset for row and column
+                    int(result.definition_line) - 1, 0
+                )
+                region_end = self.target_view.text_point(
+                    int(result.definition_line), 0
+                )
+                new_buckets[bucket].append((
+                    result, sublime.Region(region_start, region_end)
+                ))
         return new_buckets
 
     def add_phantoms_to_active_view(self):
