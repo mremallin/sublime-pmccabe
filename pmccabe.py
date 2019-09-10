@@ -19,11 +19,13 @@ ComplexityResult = collections.namedtuple("ComplexityResult",
                                            "first_line",
                                            "lines_in_function",
                                            "filename",
+                                           "definition_line",
                                            "function_name"])
 ComplexityLineRE = re.compile(
     r"^(?P<modified_complexity>\d+)\s+"
     "(?P<traditional_complexity>\d+)\s+(?P<num_statements>\d+)\s+"
-    "(?P<first_line>\d+)\s+(?P<num_lines>\d+)\s+(?P<filename>.*):\s+"
+    "(?P<first_line>\d+)\s+(?P<num_lines>\d+)\s+(?P<filename>.*)"
+    "\((?P<definition_line>\d+)\):\s+"
     "(?P<function_name>.*)")
 
 
@@ -87,13 +89,15 @@ class AsyncProcess(object):
         if self.proc.stdout:
             threading.Thread(
                 target=self.read_fileno,
-                args=(self.proc.stdout.fileno(), True)
+                args=(self.proc.stdout.fileno(), True),
+                name="pmccabe-stdout"
             ).start()
 
         if self.proc.stderr:
             threading.Thread(
                 target=self.read_fileno,
-                args=(self.proc.stderr.fileno(), False)
+                args=(self.proc.stderr.fileno(), False),
+                name="pmccabe-stderr"
             ).start()
 
     def kill(self):
@@ -142,6 +146,16 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
     text_queue = collections.deque()
     text_queue_proc = None
     text_queue_lock = threading.Lock()
+    _phantom_content = """
+    <body id="pmccabe-phantom">
+        <style>
+            div.{bucket} {{{css_text_color}}}
+        </style>
+        <div class="{bucket}">
+            (Modified: {modified}, Traditional: {traditional})
+        </div>
+    </body>
+    """
 
     def _get_pmccabe_executable(self):
         s = sublime.load_settings("pmccabe.sublime-settings")
@@ -160,6 +174,10 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
         s = sublime.load_settings("pmccabe.sublime-settings")
         return s.get("output_highlighting", False)
 
+    def _get_phantoms_enabled(self):
+        s = sublime.load_settings("pmccabe.sublime-settings")
+        return s.get("phantoms_enabled", True)
+
     def run(self, kill=False, encoding="utf-8", quiet=False, **kwargs):
         # clear the text_queue
         with self.text_queue_lock:
@@ -173,18 +191,20 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
                 self.append_string(None, "[Cancelled]")
             return
 
-        view = self.window.active_view()
+        self.target_view = self.window.active_view()
         self.output_panel = self.window.create_output_panel("pmccabe")
         self.window.run_command("show_panel", {"panel": "output.pmccabe"})
+        self.phantoms = sublime.PhantomSet(self.target_view,
+                                           "pmccabe_output_phantoms")
 
         self.encoding = encoding
         self.quiet = quiet
         self.debug_text = ""
 
         try:
-            # Forward kwargs to AsyncProcess
             self.proc = AsyncProcess(self._get_pmccabe_executable(),
-                                     view.file_name(), self, **kwargs)
+                                     self.target_view.file_name(), self,
+                                     **kwargs)
 
             with self.text_queue_lock:
                 self.text_queue_proc = self.proc
@@ -204,11 +224,11 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
 
         for result, line_region in results:
             if int(result.modified_complexity) > self._get_high_complexity_threshold():
-                output_regions["high_complexity"].append(line_region)
+                output_regions["high_complexity"].append((result, line_region))
             elif int(result.modified_complexity) > self._get_medium_complexity_threshold():
-                output_regions["medium_complexity"].append(line_region)
+                output_regions["medium_complexity"].append((result, line_region))
             else:
-                output_regions["low_complexity"].append(line_region)
+                output_regions["low_complexity"].append((result, line_region))
 
         return output_regions
 
@@ -220,18 +240,69 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
         else:
             return "comment"
 
+    def get_css_for_bucket(self, result_bucket):
+        if result_bucket == "high_complexity":
+            return "color: var(--redish);"
+        elif result_bucket == "medium_complexity":
+            return ""
+        else:
+            return "color: var(--bluish);"
+
+    def get_all_output_lines(self):
+        return self.output_panel.lines(
+            sublime.Region(0, self.output_panel.size())
+        )
+
     def highlight_results(self):
-        output_lines = self.output_panel.lines(
-            sublime.Region(0, self.output_panel.size()))
+        output_lines = self.get_all_output_lines()
         results = parse_complexity_results(self.output_panel, output_lines)
         complexity_buckets = self.sort_results_into_buckets(results)
 
         for bucket, regions in complexity_buckets.items():
+            output_regions = [region[1] for region in regions]
             self.output_panel.add_regions(
                 "Pmccabe_" + bucket,
-                regions,
+                output_regions,
                 self.get_scope_for_bucket(bucket)
             )
+
+    def change_regions_from_output_to_active(self, complexity_buckets):
+        new_buckets = {}
+        for bucket, results in complexity_buckets.items():
+            new_buckets[bucket] = []
+            for result, _ in results:
+                region_start = self.target_view.text_point(
+                    # text_point uses 0-offset for row and column
+                    int(result.definition_line) - 1, 0
+                )
+                region_end = self.target_view.text_point(
+                    int(result.definition_line), 0
+                )
+                new_buckets[bucket].append((
+                    result, sublime.Region(region_start, region_end)
+                ))
+        return new_buckets
+
+    def add_phantoms_to_active_view(self):
+        output_lines = self.get_all_output_lines()
+        results = parse_complexity_results(self.output_panel, output_lines)
+        complexity_buckets = self.sort_results_into_buckets(results)
+        complexity_buckets = self.change_regions_from_output_to_active(complexity_buckets)
+        phantoms = []
+
+        for bucket, regions in complexity_buckets.items():
+            for result, region in regions:
+                phantoms.append(sublime.Phantom(
+                    region,
+                    PmccabeCommand._phantom_content.format(
+                        bucket=bucket,
+                        css_text_color=self.get_css_for_bucket(bucket),
+                        modified=result.modified_complexity,
+                        traditional=result.traditional_complexity
+                    ),
+                    sublime.LAYOUT_BLOCK
+                ))
+        self.phantoms.update(phantoms)
 
     def is_enabled(self, kill=False, **kwargs):
         if kill:
@@ -305,6 +376,8 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
 
         if self._get_output_highlighting_enabled():
             self.highlight_results()
+        if self._get_phantoms_enabled():
+            self.add_phantoms_to_active_view()
 
         sublime.status_message("Analysis finished")
 
