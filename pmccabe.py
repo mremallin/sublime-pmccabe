@@ -185,10 +185,10 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
                 self.append_string(None, "[Cancelled]")
             return
 
-        view = self.window.active_view()
+        self.target_view = self.window.active_view()
         self.output_panel = self.window.create_output_panel("pmccabe")
         self.window.run_command("show_panel", {"panel": "output.pmccabe"})
-        self.phantoms = sublime.PhantomSet(self.output_panel,
+        self.phantoms = sublime.PhantomSet(self.target_view,
                                            "pmccabe_output_phantoms")
 
         self.encoding = encoding
@@ -197,7 +197,8 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
 
         try:
             self.proc = AsyncProcess(self._get_pmccabe_executable(),
-                                     view.file_name(), self, **kwargs)
+                                     self.target_view.file_name(), self,
+                                     **kwargs)
 
             with self.text_queue_lock:
                 self.text_queue_proc = self.proc
@@ -241,12 +242,15 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
         else:
             return "color: var(--bluish);"
 
+    def get_all_output_lines(self):
+        return self.output_panel.lines(
+            sublime.Region(0, self.output_panel.size())
+        )
+
     def highlight_results(self):
-        output_lines = self.output_panel.lines(
-            sublime.Region(0, self.output_panel.size()))
+        output_lines = self.get_all_output_lines()
         results = parse_complexity_results(self.output_panel, output_lines)
         complexity_buckets = self.sort_results_into_buckets(results)
-        phantoms = []
 
         for bucket, regions in complexity_buckets.items():
             output_regions = [region[1] for region in regions]
@@ -255,6 +259,32 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
                 output_regions,
                 self.get_scope_for_bucket(bucket)
             )
+
+    def change_regions_from_output_to_active(self, complexity_buckets):
+        new_buckets = {}
+        possible_function_definitions = \
+            self.target_view.find_by_selector("entity.name.function.c")
+        for bucket, results in complexity_buckets.items():
+            new_buckets[bucket] = []
+            for function_region in possible_function_definitions:
+                line = self.target_view.substr(function_region)
+                print(results)
+                for result, region in results:
+                    if result.function_name in line:
+                        new_buckets[bucket].append((
+                            result, function_region
+                        ))
+        print(new_buckets)
+        return new_buckets
+
+    def add_phantoms_to_active_view(self):
+        output_lines = self.get_all_output_lines()
+        results = parse_complexity_results(self.output_panel, output_lines)
+        complexity_buckets = self.sort_results_into_buckets(results)
+        complexity_buckets = self.change_regions_from_output_to_active(complexity_buckets)
+        phantoms = []
+
+        for bucket, regions in complexity_buckets.items():
             for result, region in regions:
                 phantoms.append(sublime.Phantom(
                     region,
@@ -264,9 +294,8 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
                         modified=result.modified_complexity,
                         traditional=result.traditional_complexity
                     ),
-                    sublime.LAYOUT_BELOW
+                    sublime.LAYOUT_BLOCK
                 ))
-
         self.phantoms.update(phantoms)
 
     def is_enabled(self, kill=False, **kwargs):
@@ -341,6 +370,7 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
 
         if self._get_output_highlighting_enabled():
             self.highlight_results()
+            self.add_phantoms_to_active_view()
 
         sublime.status_message("Analysis finished")
 
