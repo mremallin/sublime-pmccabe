@@ -268,13 +268,11 @@ class PmccabeCommand(sublime_plugin.WindowCommand, ProcessListener):
             new_buckets[bucket] = []
             for function_region in possible_function_definitions:
                 line = self.target_view.substr(function_region)
-                print(results)
                 for result, region in results:
                     if result.function_name in line:
                         new_buckets[bucket].append((
                             result, function_region
                         ))
-        print(new_buckets)
         return new_buckets
 
     def add_phantoms_to_active_view(self):
